@@ -1,77 +1,105 @@
+require './lib/human'
+require './lib/computer'
+
 class Game
-  @@turn_count = 1
-  @@range = [1, 2, 3, 4, 5, 6]
-
   def initialize
-    @board = []
-    @guess = []
+    @human = Human.new
+    @computer = Computer.new
     @pegs = []
-    i = 0
-    while i < 4
-      rand_index = rand(6)
-      @board.push(@@range[rand_index])
-      i += 1
-    end
-    puts "Secret code is #{@board}"
+    @winner = nil
   end
 
-  def play_turn
-    i = 0
-    @guess = []
-    puts "Turn : #{@@turn_count}"
-    puts "What's your guess ?"
+  def run
+    display_instructions
+    ask_user_role
 
-    while i < @board.length
-      get_guess = gets.chomp.to_i
-      until (get_guess > 0) && (get_guess < 7)
-        puts 'Please enter a number between 1 and 6s'
-        get_guess = gets.chomp.to_i
+    if human_breaker?
+      @computer.generate_secret_code
+      @computer.display_secret_code
+
+      10.times do |i| # regardez la doc
+        turn_count = i + 1
+        puts "Turn : #{turn_count}"
+        @human.play_turn
+        return display_user_win if game_won?
+
+        give_hints
       end
-      @guess.push(get_guess)
-      i += 1
-    end
-    puts "Guess is #{@guess}"
-  end
+      display_user_loss
+    else
+      @human.ask_secret_code
+      @human.display_secret_code
+      10.times do |i| # regardez la doc
+        turn_count = i + 1
+        puts "Turn : #{turn_count}"
+        @computer.play_turn
+        return display_user_loss if game_won?
 
-  def check_win
-    return unless @board == @guess
-
-    puts "Congrats, you win the game in #{@@turn_count} turns."
-    @@turn_count = 10
-  end
-
-  def compare_board
-    i = 0
-    @pegs = []
-    puts "Pegs is #{@pegs}"
-    while i < @board.length
-      if @board[i] == @guess[i]
-        @pegs.push('X')
-      elsif @board.any?(@guess[i])
-        @pegs.push('0')
+        # @computer.train
       end
-      i += 1
+      display_user_win
     end
-    puts "Your guess returns #{@pegs}"
+  end
+
+  private # upfront methods shouldn't be called outside the class
+
+  def display_instructions
     puts "\r"
-    @@turn_count += 1
+    puts 'Hello user, you are about to play a game of Mastermind.'
+    puts "If you don't know the rules, please open your internet browser."
+    puts "If you don't know how to open your browser, you shouldn't be here."
+    puts 'Do you want to be the code break or the code maker ?'
+    puts 'Enter B for breaker or M for maker'
   end
 
-  def check_win
-    if @board == @guess
-      puts "Congrats, you win the game in #{@@turn_count} turns."
-      @@turn_count = 10
-    elsif @@turn_count == 11
-      puts 'You lose, sorry about that.'
-    end
-    @@turn_count += 1
+  def ask_user_role
+    @user_role = gets.chomp
+    return if %w[M B].include?(@user_role)
+
+    puts 'Please enter B for breaker or M for maker'
+    ask_user_role
   end
 
-  def play_game
-    until @@turn_count >= 10
-      play_turn
-      compare_board
-      check_win
+  def human_breaker?
+    @user_role == 'B'
+  end
+
+  def game_won?
+    @human.board == @computer.board
+  end
+
+  def display_user_win
+    puts 'Congrats, you win.'
+  end
+
+  def display_user_loss
+    puts 'AH ! You lose.'
+  end
+
+  def give_hints
+    @pegs = []
+    puts "Your guess : #{@human.board}"
+    count_matches
+    count_correct_number
+    puts "Hints :  #{@pegs}"
+    puts "\r"
+  end
+
+  def count_matches
+    4.times do |i|
+      @pegs.push('X') if matches?(i)
     end
+  end
+
+  def count_correct_number
+    # bug when no matches but correct number with another matches
+    4.times do |i|
+      @pegs.push('0') if !matches?(i) && @computer.board.include?(@human.board[i])
+      @human.replace_element(@human.board[i])
+    end
+  end
+
+  def matches?(i)
+    @computer.board[i] == @human.board[i]
   end
 end
